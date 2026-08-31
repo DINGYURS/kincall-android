@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">KinCall</string>
+    <string name="foundation_ready">KinCall 基础工程已就绪</string>
+</resources>
