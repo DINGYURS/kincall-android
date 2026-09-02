@@ -5,7 +5,9 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -18,6 +20,7 @@ import com.kincall.android.domain.ContactProfile
 import com.kincall.android.domain.ProfileValidator
 import com.kincall.android.domain.ValidationError
 import com.kincall.android.domain.ValidationResult
+import com.kincall.android.readiness.RuntimeReadinessChecker
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.Executors
@@ -26,6 +29,7 @@ class MainActivity : Activity() {
     private val repository by lazy { ContactProfileRepository(this) }
     private val callRequestGate = CallRequestGate()
     private val ioExecutor = Executors.newSingleThreadExecutor()
+    private val readinessChecker by lazy { RuntimeReadinessChecker(this) }
 
     private lateinit var setupContainer: View
     private lateinit var homeContainer: View
@@ -35,6 +39,10 @@ class MainActivity : Activity() {
     private lateinit var contactName: TextView
     private lateinit var callStatus: TextView
     private lateinit var saveButton: Button
+    private lateinit var weChatStatus: TextView
+    private lateinit var accessibilityStatus: TextView
+    private lateinit var openAccessibilitySettingsButton: Button
+    private lateinit var restrictedSettingsHelp: TextView
 
     private var pendingPhotoUri: Uri? = null
 
@@ -57,6 +65,11 @@ class MainActivity : Activity() {
     override fun onSaveInstanceState(outState: Bundle) {
         pendingPhotoUri?.let { outState.putString(STATE_PENDING_PHOTO_URI, it.toString()) }
         super.onSaveInstanceState(outState)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshReadiness()
     }
 
     override fun onDestroy() {
@@ -84,6 +97,10 @@ class MainActivity : Activity() {
         contactName = findViewById(R.id.contact_name)
         callStatus = findViewById(R.id.call_status)
         saveButton = findViewById(R.id.save_profile_button)
+        weChatStatus = findViewById(R.id.wechat_status)
+        accessibilityStatus = findViewById(R.id.accessibility_status)
+        openAccessibilitySettingsButton = findViewById(R.id.open_accessibility_settings_button)
+        restrictedSettingsHelp = findViewById(R.id.restricted_settings_help)
         setupPhoto.clipToOutline = true
         callPhoto.clipToOutline = true
     }
@@ -98,6 +115,9 @@ class MainActivity : Activity() {
         }
         saveButton.setOnClickListener { saveProfile() }
         callPhoto.setOnClickListener { handleCallRequest() }
+        openAccessibilitySettingsButton.setOnClickListener {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -178,7 +198,11 @@ class MainActivity : Activity() {
         homeContainer.visibility = View.VISIBLE
         contactName.text = profile.displayName
         callPhoto.contentDescription = getString(R.string.call_contact_description, profile.displayName)
-        callStatus.text = getString(R.string.tap_photo_instruction)
+        callStatus.text = if (readinessChecker.check().isReady) {
+            getString(R.string.tap_photo_instruction)
+        } else {
+            getString(R.string.caregiver_setup_required)
+        }
         callPhoto.isEnabled = true
 
         if (profile.photoFile != null) {
@@ -192,7 +216,12 @@ class MainActivity : Activity() {
         if (!callRequestGate.tryAcquire()) return
 
         callPhoto.isEnabled = false
-        callStatus.text = getString(R.string.call_service_not_ready)
+        val readiness = readinessChecker.check()
+        callStatus.text = when {
+            !readiness.isWeChatInstalled -> getString(R.string.wechat_not_installed_call_blocked)
+            !readiness.isAccessibilityServiceEnabled -> getString(R.string.accessibility_not_enabled_call_blocked)
+            else -> getString(R.string.automation_not_ready)
+        }
         callStatus.announceForAccessibility(callStatus.text)
         callStatus.postDelayed(
             {
@@ -201,6 +230,40 @@ class MainActivity : Activity() {
             },
             CALL_FEEDBACK_MILLIS,
         )
+    }
+
+    private fun refreshReadiness() {
+        if (!::weChatStatus.isInitialized) return
+
+        val readiness = readinessChecker.check()
+        weChatStatus.text = if (readiness.isWeChatInstalled) {
+            getString(R.string.wechat_installed)
+        } else {
+            getString(R.string.wechat_not_installed)
+        }
+        accessibilityStatus.text = if (readiness.isAccessibilityServiceEnabled) {
+            getString(R.string.accessibility_enabled)
+        } else {
+            getString(R.string.accessibility_disabled)
+        }
+        openAccessibilitySettingsButton.visibility =
+            if (readiness.isAccessibilityServiceEnabled) View.GONE else View.VISIBLE
+        restrictedSettingsHelp.visibility =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                !readiness.isAccessibilityServiceEnabled
+            ) {
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
+
+        if (::homeContainer.isInitialized && homeContainer.visibility == View.VISIBLE) {
+            callStatus.text = if (readiness.isReady) {
+                getString(R.string.tap_photo_instruction)
+            } else {
+                getString(R.string.caregiver_setup_required)
+            }
+        }
     }
 
     private fun setPrivatePhoto(view: ImageView, file: File) {

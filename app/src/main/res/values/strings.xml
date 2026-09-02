@@ -15,6 +15,18 @@
     <string name="home_title">一键视频通话</string>
     <string name="tap_photo_instruction">轻触照片呼叫家人</string>
     <string name="call_contact_description">给%1$s打视频电话</string>
-    <string name="call_service_not_ready">通话服务尚未开启，请家属继续设置</string>
     <string name="caregiver_settings">家属设置</string>
+    <string name="accessibility_service_label">KinCall 一键通话辅助</string>
+    <string name="accessibility_service_description">仅在微信中读取界面并执行由用户主动发起的固定视频通话步骤。</string>
+    <string name="runtime_requirements_title">通话服务状态</string>
+    <string name="wechat_installed">✓ 已安装微信</string>
+    <string name="wechat_not_installed">✕ 未安装微信</string>
+    <string name="accessibility_enabled">✓ KinCall 辅助服务已开启</string>
+    <string name="accessibility_disabled">✕ KinCall 辅助服务未开启</string>
+    <string name="open_accessibility_settings">前往系统设置开启辅助服务</string>
+    <string name="restricted_settings_help">如果系统不允许开启，请先进入“应用信息”右上角菜单，选择“允许受限设置”。</string>
+    <string name="caregiver_setup_required">请家属先完成通话服务设置</string>
+    <string name="wechat_not_installed_call_blocked">没有找到微信，请联系家属</string>
+    <string name="accessibility_not_enabled_call_blocked">通话服务没有开启，请联系家属</string>
+    <string name="automation_not_ready">自动拨号功能正在准备中</string>
 </resources>
